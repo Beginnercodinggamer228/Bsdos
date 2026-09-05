@@ -1,4 +1,4 @@
-name: Build driver
+name: Build BSOD Driver
 
 on:
   push:
@@ -6,56 +6,89 @@ on:
   workflow_dispatch:
 
 jobs:
-  build-driver:
+  build:
     runs-on: windows-latest
     
     steps:
-    - name: Checkout
+    - name: Checkout code
       uses: actions/checkout@v3
     
-    - name: Setup WDK
-      run: |
-        choco install windows-sdk -y
-        choco install wdk -y
-    
+    # ВАЖНО: Настраиваем MSVC
     - name: Setup MSVC
-      uses: microsoft/setup-msbuild@v1.1
+      uses: ilammy/msvc-dev-cmd@v1
+      with:
+        arch: x64
     
-    - name: Build Driver
+    - name: Setup Python
+      uses: actions/setup-python@v4
+      with:
+        python-version: '3.10'
+    
+    - name: Install Python packages
       run: |
+        pip install pyinstaller colorama
+    
+    # УПРОЩЁННЫЙ СПОСОБ БЕЗ WDK
+    - name: Download Windows SDK
+      run: |
+        # Скачиваем Windows SDK (легче чем WDK)
+        curl -L -o sdk_setup.exe https://download.microsoft.com/download/A/B/7/AB7E1FE7-920F-4B81-A4B5-5F1FBBE3CF51/windowssdk/winsdksetup.exe
+        .\sdk_setup.exe /quiet /norestart /installpath C:\WinSDK
+    
+    # СОЗДАЁМ ДРАЙВЕР БЕЗ WDK (используем готовый инструмент)
+    - name: Create driver (alternative method)
+      run: |
+        # Создаём папку
         mkdir build
-
-        cl /nologo /W4 /Gs /Zi /MT /Os /O1 /GF /GS /Gz /kernel /Zl /Zp8 /D"_WIN32_WINNT=0x0601" /D"NTDDI_VERSION=0x06010000" /D"DBG=1" /D"NDEBUG" /Fe:build/bsod_driver.sys /Fo:build/ driver/bsod_driver.c
-
+        
+        # Компилируем простой драйвер через cl
+        cd driver
+        cl /nologo /W4 /Gs /Zi /MT /Os /O1 /GF /GS /Gz /kernel /Zl /Zp8 /D"_WIN32_WINNT=0x0601" /D"NTDDI_VERSION=0x06010000" /Fe..\build\bsod_driver.sys bsod_driver.c
+        cd ..
+        
+        # Копируем INF
         copy driver\bsod_driver.inf build\
     
-    - name: Create client tool
+    # КОМПИЛИРУЕМ TRIGGER TOOL
+    - name: Build trigger tool
       run: |
-        cl /nologo /O2 /Fe:build/bsod_trigger.exe /Fo:build/ client/trigger_bsod.c
-
-        pip install pyinstaller
+        cl /nologo /O2 /Fe:build/bsod_trigger.exe client/trigger_bsod.c
+    
+    # СОЗДАЁМ CLI
+    - name: Build CLI
+      run: |
         pyinstaller --onefile --name bsdos client/bsdos_cli.py
-        
         copy dist\bsdos.exe build\
     
-    - name: Create package
+    # СОЗДАЁМ СКРИПТЫ
+    - name: Create scripts
       run: |
-        mkdir release
-        copy build\bsod_driver.sys release\
-        copy build\bsod_driver.inf release\
-        copy build\bsod_trigger.exe release\
-        copy build\bsdos.exe release\
-        copy src\errors.json release\
-        echo "@echo off" > release\install.bat
-        echo "echo Installing BSOD Driver..." >> release\install.bat
-        echo "sc create BSODDriver binPath= %CD%\bsod_driver.sys type= kernel start= demand" >> release\install.bat
-        echo "sc start BSODDriver" >> release\install.bat
-        echo "echo Driver installed!" >> release\install.bat
-        echo "@echo off" > release\trigger.bat
-        echo "bsod_trigger.exe %%1" >> release\trigger.bat
+        echo @echo off > build\install.bat
+        echo echo ============================================ >> build\install.bat
+        echo echo  Installing BSOD Driver >> build\install.bat
+        echo echo ============================================ >> build\install.bat
+        echo sc create BSODDriver binPath= %CD%\bsod_driver.sys type= kernel start= demand >> build\install.bat
+        echo sc start BSODDriver >> build\install.bat
+        echo echo. >> build\install.bat
+        echo echo Driver installed successfully! >> build\install.bat
+        echo pause >> build\install.bat
+        
+        echo @echo off > build\trigger_bsod.bat
+        echo echo Triggering BSOD... >> build\trigger_bsod.bat
+        echo bsod_trigger.exe %%1 >> build\trigger_bsod.bat
+        
+        echo @echo off > build\enable_test_mode.bat
+        echo echo ============================================ >> build\enable_test_mode.bat
+        echo echo  Enabling Test Mode >> build\enable_test_mode.bat
+        echo echo ============================================ >> build\enable_test_mode.bat
+        echo bcdedit /set testsigning on >> build\enable_test_mode.bat
+        echo echo. >> build\enable_test_mode.bat
+        echo echo Please restart your PC! >> build\enable_test_mode.bat
+        echo pause >> build\enable_test_mode.bat
     
+    # Загружаем артефакт
     - name: Upload artifacts
       uses: actions/upload-artifact@v3
       with:
-        name: bsod-driver-package
-        path: release/
+        name: bsod-package
+        path: build/
