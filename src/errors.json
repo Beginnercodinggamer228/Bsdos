@@ -1,0 +1,17 @@
+{
+    "DEADBEEF": {
+        "name": "CUSTOM_BSOD_ERROR",
+        "created": "2026-09-05T12:00:00",
+        "count": 0
+    },
+        "0A": {
+        "name": "IRQL_NOT_LESS_OR_EQUAL",
+        "created": "2026-09-05T12:00:00",
+        "count": 0
+    },
+        "3B": {
+        "name": "SYSTEM_SERVICE_EXCEPTION",
+        "created": "2026-09-05T12:00:00",
+        "count": 0
+    }
+}

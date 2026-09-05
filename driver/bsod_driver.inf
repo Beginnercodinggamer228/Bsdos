@@ -1,0 +1,57 @@
+; BSOD Driver Installation File
+
+[Version]
+Signature="$WINDOWS NT$"
+Class=System
+ClassGuid={4d36e97d-e325-11ce-bfc1-08002be10318}
+Provider=%ProviderName%
+DriverVer=09/05/2026,1.0.0.0
+CatalogFile=bsod_driver.cat
+
+[DestinationDirs]
+DefaultDestDir=12
+
+[DefaultInstall]
+CopyFiles=BSODDriver.CopyFiles
+
+[DefaultInstall.Services]
+AddService=BSODDriver,0x00000002,BSODDriverService
+
+[BSODDriver.CopyFiles]
+bsod_driver.sys
+
+[BSODDriverService]
+DisplayName=%ServiceName%
+ServiceType=1
+StartType=3
+ErrorControl=1
+ServiceBinary=%12%\bsod_driver.sys
+LoadOrderGroup=Base
+
+[SourceDisksNames]
+1 = %DiskName%,,,
+
+[SourceDisksFiles]
+bsod_driver.sys = 1,,
+
+[Manufacturer]
+%ProviderName% = Standard,NTx86,NTamd64
+
+[Standard.NTx86]
+%DeviceName% = BSODDriverInstall, root\BSODDriver
+
+[Standard.NTamd64]
+%DeviceName% = BSODDriverInstall, root\BSODDriver
+
+[BSODDriverInstall]
+CopyFiles=BSODDriver.CopyFiles
+AddReg=BSODDriver.AddReg
+
+[BSODDriver.AddReg]
+HKR,,DebugLevel,0x00010001,0
+
+[Strings]
+ProviderName="BSOD Driver Project"
+DeviceName="BSOD Driver"
+ServiceName="BSODDriver"
+DiskName="BSOD Driver Installation Disk"
